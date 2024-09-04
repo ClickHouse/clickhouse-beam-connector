@@ -20,7 +20,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    name: Compile using JDK 8
+    name: Test Apache Beam - ClickHouse IO
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
