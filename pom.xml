@@ -17,8 +17,8 @@
     </properties>
     <repositories>
         <repository>
-            <id>my-repo1</id>
-            <name>your custom repo</name>
+            <id>staging-repo</id>
+            <name>staging repo</name>
             <url>https://repository.apache.org/content/repositories/staging/</url>
         </repository>
     </repositories>
