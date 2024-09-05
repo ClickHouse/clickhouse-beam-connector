@@ -40,7 +40,6 @@ public class CloudTest {
         hostname = System.getProperty("CLICKHOUSE_HOSTNAME");
         password = System.getProperty("CLICKHOUSE_PASSWORD");
         username = "default";
-
         client = new Client.Builder()
                 .setPassword(password)
                 .setUsername(username)
@@ -52,7 +51,9 @@ public class CloudTest {
         client.ping();
         createDatabase();
     }
-
+    private void dropTable(String tableName) throws ExecutionException, InterruptedException, TimeoutException {
+        client.execute("DROP TABLE IF EXISTS " + database + "." + tableName).get(10, TimeUnit.SECONDS);
+    }
     private void createDatabase() throws ExecutionException, InterruptedException, TimeoutException {
         client.execute("CREATE DATABASE IF NOT EXISTS " + database).get(10, TimeUnit.SECONDS);
     }
@@ -160,6 +161,7 @@ public class CloudTest {
 
         pipeline.run().waitUntilFinish();
         assertEquals("number of rows inserted ", numberOfRecords, countRows(tableName));
+        dropTable(tableName);
     }
 
 }
