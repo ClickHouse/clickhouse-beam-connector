@@ -1,10 +1,5 @@
 <div align="center">
 <p>
-
-Apache Beam [![Apache Beam Version](https://maven-badges.herokuapp.com/maven-central/org.apache.beam/beam-sdks-java-core/badge.svg)](http://search.maven.org/#search|gav|1|g:"org.apache.beam")
-
-</p>
-<p>
 <img src="https://github.com/ClickHouse/clickhouse-js/blob/a332672bfb70d54dfd27ae1f8f5169a6ffeea780/.static/logo.svg" width="200px" align="center">
 </p>
 <h1>Apache Beam ClickHouseIO </h1>
