@@ -18,7 +18,7 @@ This will make sure that the k latest versions of Apache Beam work with ClickHou
 
 ## Examples 
 
-A Full Maven example with pom.xml definition see: [here](https://github.com/ClickHouse/clickhouse-beam-connector/tree/main/example/mvn)
+A Full Maven example with pom.xml definition see: [maven example](https://github.com/ClickHouse/clickhouse-beam-connector/tree/main/example/mvn)
 
 ## Docs 
 
