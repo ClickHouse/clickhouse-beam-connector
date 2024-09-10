@@ -215,7 +215,32 @@ public class CloudTest {
 
     }
 
-
+    private List<SimplePOJO> createSimplePOJOs(int size) {
+        List<SimplePOJO> simplePOJOs = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            simplePOJOs.add(new SimplePOJO(new DateTime(2030, 10, 1, 0, 0, 0, DateTimeZone.UTC),
+                    new DateTime(2030, 10, 9, 8, 7, 6, DateTimeZone.UTC),
+                    2.2f,
+                    3.3,
+                    (byte) 4,
+                    (short) 5,
+                    6,
+                    i,
+                    "eight",
+                    (short) 9,
+                    10,
+                    11L,
+                    12L,
+                    "abc",
+                    "cde",
+                    "qwe",
+                    new byte[] {'a', 's', 'd'},
+                    new byte[] {'z', 'x', 'c'},
+                    true,
+                    "pojo" + i));
+        }
+        return simplePOJOs;
+    }
     @Test
     public void simplePOJOInsertTest() throws ExecutionException, InterruptedException, TimeoutException {
         String tableName = "test_simple_pojo";
@@ -261,6 +286,8 @@ public class CloudTest {
                 true,
                 "simplePOJO02");
 
+        List<SimplePOJO> pojos = createSimplePOJOs(numberOfRecords);
+
         String sql = String.format("CREATE TABLE %s.%s ("
                 + "f0  Date,"
                 + "f1  DateTime,"
@@ -287,7 +314,7 @@ public class CloudTest {
         client.execute(sql);
 
         Pipeline pipeline = Pipeline.create();
-        pipeline.apply(Create.of(simplePOJO01, simplePOJO02))
+        pipeline.apply(Create.of(pojos))
                 .apply(ClickHouseIO.write(String.format("jdbc:clickhouse://%s:%d/%s?user=%s&password=%s&ssl=true&compress=0", hostname, port, database, username, password), tableName));
 
         pipeline.run().waitUntilFinish();
