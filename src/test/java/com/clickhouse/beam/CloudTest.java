@@ -6,7 +6,9 @@ import com.clickhouse.client.api.query.GenericRecord;
 import com.clickhouse.client.api.query.Records;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.clickhouse.ClickHouseIO;
+import org.apache.beam.sdk.schemas.JavaFieldSchema;
 import org.apache.beam.sdk.schemas.Schema;
+import org.apache.beam.sdk.schemas.annotations.DefaultSchema;
 import org.apache.beam.sdk.schemas.logicaltypes.FixedBytes;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.values.Row;
@@ -164,4 +166,160 @@ public class CloudTest {
         dropTable(tableName);
     }
 
+    @DefaultSchema(JavaFieldSchema.class)
+    public static class SimplePOJO {
+        public DateTime f0;
+        public DateTime f1;
+        public float f2;
+        public double f3;
+        public byte f4;
+        public short f5;
+        public int f6;
+        public long f7;
+        public String f8;
+        public short f9;
+        public int f10;
+        public long f11;
+        public long f12;
+        public String f13;
+        public String f14;
+        public String f15;
+        public byte[] f16;
+        public byte[] f17;
+        public boolean f18;
+        public String f19;
+
+        public SimplePOJO(DateTime f0, DateTime f1, float f2, double f3, byte f4, short f5, int f6, long f7, String f8, short f9, int f10, long f11, long f12, String f13, String f14, String f15, byte[] f16, byte[] f17, boolean f18, String f19) {
+            this.f0 = f0;
+            this.f1 = f1;
+            this.f2 = f2;
+            this.f3 = f3;
+            this.f4 = f4;
+            this.f5 = f5;
+            this.f6 = f6;
+            this.f7 = f7;
+            this.f8 = f8;
+            this.f9 = f9;
+            this.f10 = f10;
+            this.f11 = f11;
+            this.f12 = f12;
+            this.f13 = f13;
+            this.f14 = f14;
+            this.f15 = f15;
+            this.f16 = f16;
+            this.f17 = f17;
+            this.f18 = f18;
+            this.f19 = f19;
+        }
+        public SimplePOJO() {}
+
+    }
+
+    private List<SimplePOJO> createSimplePOJOs(int size) {
+        List<SimplePOJO> simplePOJOs = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            simplePOJOs.add(new SimplePOJO(new DateTime(2030, 10, 1, 0, 0, 0, DateTimeZone.UTC),
+                    new DateTime(2030, 10, 9, 8, 7, 6, DateTimeZone.UTC),
+                    2.2f,
+                    3.3,
+                    (byte) 4,
+                    (short) 5,
+                    6,
+                    i,
+                    "eight",
+                    (short) 9,
+                    10,
+                    11L,
+                    12L,
+                    "abc",
+                    "cde",
+                    "qwe",
+                    new byte[] {'a', 's', 'd'},
+                    new byte[] {'z', 'x', 'c'},
+                    true,
+                    "pojo" + i));
+        }
+        return simplePOJOs;
+    }
+    @Test
+    public void simplePOJOInsertTest() throws ExecutionException, InterruptedException, TimeoutException {
+        String tableName = "test_simple_pojo";
+        SimplePOJO simplePOJO01 = new SimplePOJO(new DateTime(2030, 10, 1, 0, 0, 0, DateTimeZone.UTC),
+                new DateTime(2030, 10, 9, 8, 7, 6, DateTimeZone.UTC),
+                2.2f,
+                3.3,
+                (byte) 4,
+                (short) 5,
+                6,
+                7L,
+                "eight",
+                (short) 9,
+                10,
+                11L,
+                12L,
+                "abc",
+                "cde",
+                "qwe",
+                new byte[] {'a', 's', 'd'},
+                new byte[] {'z', 'x', 'c'},
+                true,
+                "simplePOJO01");
+
+        SimplePOJO simplePOJO02 = new SimplePOJO(new DateTime(2030, 10, 1, 0, 0, 0, DateTimeZone.UTC),
+                new DateTime(2030, 10, 9, 8, 7, 6, DateTimeZone.UTC),
+                2.2f,
+                3.3,
+                (byte) 4,
+                (short) 5,
+                6,
+                7L,
+                "eight",
+                (short) 9,
+                10,
+                11L,
+                12L,
+                "abc",
+                "cde",
+                "qwe",
+                new byte[] {'a', 's', 'd'},
+                new byte[] {'z', 'x', 'c'},
+                true,
+                "simplePOJO02");
+
+        List<SimplePOJO> pojos = createSimplePOJOs(numberOfRecords);
+
+        String sql = String.format("CREATE TABLE %s.%s ("
+                + "f0  Date,"
+                + "f1  DateTime,"
+                + "f2  Float32,"
+                + "f3  Float64,"
+                + "f4  Int8,"
+                + "f5  Int16,"
+                + "f6  Int32,"
+                + "f7  Int64,"
+                + "f8  String,"
+                + "f9  UInt8,"
+                + "f10 UInt16,"
+                + "f11 UInt32,"
+                + "f12 UInt64,"
+                + "f13 Enum8('abc' = 1, 'cde' = 2),"
+                + "f14 Enum16('abc' = -1, 'cde' = -2),"
+                + "f15 FixedString(3),"
+                + "f16 FixedString(3),"
+                + "f17 FixedString(3),"
+                + "f18 Bool,"
+                + "f19 LowCardinality(String)"
+                + ") ENGINE=MergeTree() ORDER BY f4 ", database, tableName);
+
+        client.execute(sql);
+
+        Pipeline pipeline = Pipeline.create();
+        pipeline.apply(Create.of(pojos))
+                .apply(ClickHouseIO.write(String.format("jdbc:clickhouse://%s:%d/%s?user=%s&password=%s&ssl=true&compress=0", hostname, port, database, username, password), tableName));
+
+        pipeline.run().waitUntilFinish();
+
+        assertEquals("number of rows inserted ", numberOfRecords, countRows(tableName));
+        dropTable(tableName);
+    }
 }
