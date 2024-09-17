@@ -244,47 +244,6 @@ public class CloudTest {
     @Test
     public void simplePOJOInsertTest() throws ExecutionException, InterruptedException, TimeoutException {
         String tableName = "test_simple_pojo";
-        SimplePOJO simplePOJO01 = new SimplePOJO(new DateTime(2030, 10, 1, 0, 0, 0, DateTimeZone.UTC),
-                new DateTime(2030, 10, 9, 8, 7, 6, DateTimeZone.UTC),
-                2.2f,
-                3.3,
-                (byte) 4,
-                (short) 5,
-                6,
-                7L,
-                "eight",
-                (short) 9,
-                10,
-                11L,
-                12L,
-                "abc",
-                "cde",
-                "qwe",
-                new byte[] {'a', 's', 'd'},
-                new byte[] {'z', 'x', 'c'},
-                true,
-                "simplePOJO01");
-
-        SimplePOJO simplePOJO02 = new SimplePOJO(new DateTime(2030, 10, 1, 0, 0, 0, DateTimeZone.UTC),
-                new DateTime(2030, 10, 9, 8, 7, 6, DateTimeZone.UTC),
-                2.2f,
-                3.3,
-                (byte) 4,
-                (short) 5,
-                6,
-                7L,
-                "eight",
-                (short) 9,
-                10,
-                11L,
-                12L,
-                "abc",
-                "cde",
-                "qwe",
-                new byte[] {'a', 's', 'd'},
-                new byte[] {'z', 'x', 'c'},
-                true,
-                "simplePOJO02");
 
         List<SimplePOJO> pojos = createSimplePOJOs(numberOfRecords);
 
