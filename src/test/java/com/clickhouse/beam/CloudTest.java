@@ -4,13 +4,18 @@ import com.clickhouse.client.api.Client;
 import com.clickhouse.client.api.enums.Protocol;
 import com.clickhouse.client.api.query.GenericRecord;
 import com.clickhouse.client.api.query.Records;
+import com.clickhouse.test.proto.SimpleProto;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.extensions.protobuf.ProtoByteUtils;
 import org.apache.beam.sdk.io.clickhouse.ClickHouseIO;
 import org.apache.beam.sdk.schemas.JavaFieldSchema;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.annotations.DefaultSchema;
 import org.apache.beam.sdk.schemas.logicaltypes.FixedBytes;
 import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.Row;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -241,6 +246,28 @@ public class CloudTest {
         }
         return simplePOJOs;
     }
+
+    private List<Row> createSimpleProtoRows(int size) {
+        SerializableFunction<byte[], Row> protoBytesToRowFunction =
+                ProtoByteUtils.getProtoBytesToRowFunction("src/test/resources/simple/simple_desc.bin", SimpleProto.Simple.getDescriptor().getFullName());
+
+        List<Row> simpleProtos = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            SimpleProto.Simple simple =
+                    SimpleProto.Simple.newBuilder()
+                            .setIntField(i)
+                            .setLongField(1000L + i)
+                            .setFloatField(2.2f)
+                            .setDoubleField(3.3)
+                            .setBooleanField(true)
+                            .setStringField("proto" + i)
+                            .build();
+            byte[] byteArray = simple.toByteArray();
+            Row row = protoBytesToRowFunction.apply(byteArray);
+            simpleProtos.add(row);
+        }
+        return simpleProtos;
+    }
     @Test
     public void simplePOJOInsertTest() throws ExecutionException, InterruptedException, TimeoutException {
         String tableName = "test_simple_pojo";
@@ -278,6 +305,33 @@ public class CloudTest {
 
         pipeline.run().waitUntilFinish();
 
+        assertEquals("number of rows inserted ", numberOfRecords, countRows(tableName));
+        dropTable(tableName);
+    }
+    @Test
+    public void simpleProtoInsertAsRowTest() throws ExecutionException, InterruptedException, TimeoutException {
+        String tableName = "test_simple_proto_as_row";
+
+        List<Row> protosAsRows = createSimpleProtoRows(numberOfRecords);
+
+        String sql = String.format("CREATE TABLE %s.%s ("
+                + "intField  Int32,"
+                + "longField  Int64,"
+                + "floatField  Float32,"
+                + "doubleField  Float64,"
+                + "booleanField Bool,"
+                + "stringField String"
+                + ") ENGINE=MergeTree() ORDER BY intField ", database, tableName);
+
+        Schema SCHEMA = ProtoByteUtils.getBeamSchemaFromProto("src/test/resources/simple/simple_desc.bin", SimpleProto.Simple.getDescriptor().getFullName());
+
+        client.execute(sql);
+
+        Pipeline pipeline = Pipeline.create();
+        pipeline.apply(Create.of(protosAsRows)).setRowSchema(SCHEMA)
+                .apply(ClickHouseIO.write(String.format("jdbc:clickhouse://%s:%d/%s?user=%s&password=%s&ssl=true&compress=0", hostname, port, database, username, password), tableName));
+
+        pipeline.run().waitUntilFinish();
         assertEquals("number of rows inserted ", numberOfRecords, countRows(tableName));
         dropTable(tableName);
     }
