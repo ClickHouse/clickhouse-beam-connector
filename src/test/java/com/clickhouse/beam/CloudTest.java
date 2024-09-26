@@ -16,12 +16,14 @@ import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SerializableFunction;
+import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -32,13 +34,13 @@ import static org.testng.AssertJUnit.*;
 
 public class CloudTest {
 
-    private String database;
-    private String hostname;
-    private String password;
-    private String username;
-    private Client client = null;
-    private final int port = 8443;
-    private final int numberOfRecords = 1000;
+    private static String database;
+    private static String hostname;
+    private static String password;
+    private static String username;
+    private static Client client = null;
+    private static final int port = 8443;
+    private static final int numberOfRecords = 1000;
 
     @BeforeClass
     public void setUp() throws ExecutionException, InterruptedException, TimeoutException {
@@ -58,13 +60,13 @@ public class CloudTest {
         client.ping();
         createDatabase();
     }
-    private void dropTable(String tableName) throws ExecutionException, InterruptedException, TimeoutException {
+    private static void dropTable(String tableName) throws ExecutionException, InterruptedException, TimeoutException {
         client.execute("DROP TABLE IF EXISTS " + database + "." + tableName).get(10, TimeUnit.SECONDS);
     }
     private void createDatabase() throws ExecutionException, InterruptedException, TimeoutException {
         client.execute("CREATE DATABASE IF NOT EXISTS " + database).get(10, TimeUnit.SECONDS);
     }
-    private long countRows(String tableName) throws ExecutionException, InterruptedException, TimeoutException {
+    private static long countRows(String tableName) throws ExecutionException, InterruptedException, TimeoutException {
         String sql = "SELECT count(*) FROM " + database + "." + tableName;
         Records records = client.queryRecords(sql).get(10, TimeUnit.SECONDS);
         for (GenericRecord record : records) {
@@ -268,6 +270,24 @@ public class CloudTest {
         }
         return simpleProtos;
     }
+
+    private static List<SimpleProto.Simple> createSimpleProto(int size) {
+        List<SimpleProto.Simple> simpleProtos = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            SimpleProto.Simple simple =
+                    SimpleProto.Simple.newBuilder()
+                            .setIntField(i)
+                            .setLongField(1000L + i)
+                            .setFloatField(2.2f)
+                            .setDoubleField(3.3)
+                            .setBooleanField(true)
+                            .setStringField("proto" + i)
+                            .build();
+            simpleProtos.add(simple);
+        }
+        return simpleProtos;
+    }
+
     @Test
     public void simplePOJOInsertTest() throws ExecutionException, InterruptedException, TimeoutException {
         String tableName = "test_simple_pojo";
@@ -334,5 +354,47 @@ public class CloudTest {
         pipeline.run().waitUntilFinish();
         assertEquals("number of rows inserted ", numberOfRecords, countRows(tableName));
         dropTable(tableName);
+    }
+
+    @Test
+    public static void simpleProtoInsertTest() throws ExecutionException, InterruptedException, TimeoutException {
+        String tableName = "test_simple_proto";
+
+        List<SimpleProto.Simple> protos = createSimpleProto(numberOfRecords);
+
+        String sql = String.format("CREATE TABLE %s.%s ("
+                + "intField  Int32,"
+                + "longField  Int64,"
+                + "floatField  Float32,"
+                + "doubleField  Float64,"
+                + "booleanField Bool,"
+                + "stringField String"
+                + ") ENGINE=MergeTree() ORDER BY intField ", database, tableName);
+
+        Schema SCHEMA = ProtoByteUtils.getBeamSchemaFromProto("src/test/resources/simple/simple_desc.bin", SimpleProto.Simple.getDescriptor().getFullName());
+
+        SerializableFunction<byte[], Row> protoBytesToRowFunction =
+                ProtoByteUtils.getProtoBytesToRowFunction("src/test/resources/simple/simple_desc.bin", SimpleProto.Simple.getDescriptor().getFullName());
+
+        client.execute(sql);
+
+        Pipeline pipeline = Pipeline.create();
+        PCollection<SimpleProto.Simple> simplePCollection = pipeline.apply(Create.of(protos));
+        simplePCollection.apply("Convert to byte[]", ParDo.of(new DoFn<SimpleProto.Simple, Row>() {
+            @ProcessElement
+            public void processElement(ProcessContext c) {
+                SimpleProto.Simple simple = c.element();
+                byte[] byteArray = simple.toByteArray();
+                Row row = protoBytesToRowFunction.apply(byteArray);
+                c.output(row);
+            }
+        })).setRowSchema(SCHEMA)
+                .apply(ClickHouseIO.write(String.format("jdbc:clickhouse://%s:%d/%s?user=%s&password=%s&ssl=true&compress=0", hostname, port, database, username, password), tableName));
+
+
+        pipeline.run().waitUntilFinish();
+        assertEquals("number of rows inserted ", numberOfRecords, countRows(tableName));
+        dropTable(tableName);
+
     }
 }
