@@ -14,7 +14,7 @@
         <beam.version>2.59.0</beam.version>
         <testng.version>7.10.2</testng.version>
         <clickhouse-java.version>0.6.5</clickhouse-java.version>
-        <protobuf.version>4.27.3</protobuf.version>
+        <protobuf.version>4.27.5</protobuf.version>
     </properties>
     <repositories>
         <repository>
